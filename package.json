@@ -1,0 +1,45 @@
+{
+  "name": "cinammon",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"next dev --webpack --hostname 0.0.0.0\" \"tsx watch server/index.ts\"",
+    "dev:web": "next dev --webpack --hostname 0.0.0.0",
+    "dev:server": "tsx watch server/index.ts",
+    "server": "tsx watch server/index.ts",
+    "build": "next build --webpack",
+    "start": "next start --hostname 0.0.0.0",
+    "start:server": "tsx server/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "words:build": "python scripts/build_words.py",
+    "words:check": "tsx scripts/check_words.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0",
+    "dotenv": "^17.2.0",
+    "lucide-react": "^0.468.0",
+    "motion": "^12.23.0",
+    "next": "^16.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.23.15",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "concurrently": "^9.2.0",
+    "prettier": "^3.9.10",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

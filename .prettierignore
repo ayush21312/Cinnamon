@@ -1,0 +1,7 @@
+node_modules
+.next
+work
+data/words.json
+data/lexical.json
+data/forms.json
+package-lock.json
