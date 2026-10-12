@@ -1,11 +1,12 @@
 import dotenv from 'dotenv';
 import { createGameServer } from './socket';
 import { resultStore } from './persistence';
+import { gameOrigins } from './origins';
 dotenv.config({ path: '.env.local' });
 dotenv.config();
 const port = Number(process.env.PORT ?? 3001);
 const app = createGameServer({
-  origin: (process.env.CLIENT_ORIGIN ?? 'http://localhost:3000').split(',').map((v) => v.trim()),
+  origin: gameOrigins(process.env.CLIENT_ORIGIN),
   saveResult: resultStore(),
 });
 app.http.listen(port, '0.0.0.0', () =>

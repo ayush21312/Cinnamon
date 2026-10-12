@@ -18,6 +18,8 @@ Push this directory to a Git repository. Create a Node web service:
 
 Record the resulting HTTPS server URL. Avoid a trailing slash in origins. For multiple deliberate frontend origins, `CLIENT_ORIGIN` is a comma-separated list. The server checks browser Origin during connection and permits origin-less nonbrowser clients; Origin is not authentication. Guest seat authorization is the resume token/socket identity.
 
+The current public website is `https://cinnamon-five.vercel.app`, and its game server is `https://cinnamon-n8mo.onrender.com`. The public website's exact origin is also versioned in `server/site-origins.json`; these entries are combined with `CLIENT_ORIGIN`, with whitespace and trailing slashes normalized. When changing the website domain, update this file and the environment configuration. Unrelated origins are still rejected. `vercel.json` pins the Next.js framework and build commands to prevent accidental generic/static deployments.
+
 Alternatively, build the supplied server container with `docker build -f Dockerfile.server -t cinammon-server .` and run it with `docker run --env-file .env.local -p 3001:3001 cinammon-server`. This container includes the runtime TypeScript loader and offline data. The Docker image definition is supplied but Docker was not available for an image-build verification in this session.
 
 ### 2. Next.js frontend (Vercel or equivalent)
