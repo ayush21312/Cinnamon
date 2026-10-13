@@ -35,7 +35,7 @@ Run the two production commands in separate terminals. Webpack is explicitly sel
 - Private rooms for 2–8 guests, readable codes, copyable invitations, unique names, readiness, and host controls.
 - Configurable 5–60 second turns, 1–4 turns per player per prompt, 1–10 prompts, with configurable tier point values in the server settings schema.
 - Server-owned deadlines, scores, prompt rotation, no repeats, retrying invalid answers, and final results.
-- 145 curated recognizable prompts; an offline 109,219-entry dictionary with real wordfreq Zipf estimates.
+- 155 curated recognizable prompts; an offline 109,230-entry dictionary with real wordfreq Zipf estimates.
 - Curated direct and contextual associations plus structural WordNet relationships.
 - Same-tab authenticated reconnection, stale socket invalidation, host reassignment, lobby seat expiry, rate limits, strict payload validation, and stale-turn rejection.
 - Cream and cinnamon interface, responsive layouts, reduced-motion support, optional synthesized sounds, rarity reveals, score changes, prompt/turn transitions, and results highlights.
@@ -71,7 +71,7 @@ The server polls deadlines every 100 ms and also checks the deadline before a su
 
 Normalization uses Unicode NFKC, lowercase, whitespace trimming/collapsing, and curly-apostrophe normalization. Only one word of 2–32 ASCII letters, internal hyphens/apostrophes is supported. Verified plural and noun/verb inflections share a word family: fish/fishes and swim/swam/swimming cannot score separately for the same prompt. Families reset at prompt rotation. The prompt and its forms cannot be played. WordNet verifies roots rather than blindly stripping an s; some ambiguous forms can be conservatively grouped. Unknown spellings of at least four letters are corrected only when exactly one accepted prompt candidate is one edit away. Known English words stay intact except a unique missing/extra final s correction when the original has no verified connection. Accepted base forms determine frequency and points. See [WORD_BANK.md](WORD_BANK.md) for examples and editing instructions.
 
-Disconnected players retain their match seat and score. Their turns continue on the normal deadline and can expire; disconnecting cannot pause the game. In the lobby/results, disconnected seats are removed after two minutes. Entire unoccupied rooms expire after 30 minutes without game activity. The host transfers to the first connected player. Reconnection does not reclaim host status from the new host. Leaving during a match disconnects the seat for that match; the player’s browser clears its resume token.
+Disconnected players have a 10-second grace period to restore their seat. After it expires they are removed from active play and their resume token is revoked. Explicit Leave removes a match seat immediately. Removed seats are skipped in the turn order; a match ends when only one eligible player remains, who wins by remaining in the game. Departed scores remain visible as historical results, marked left. Rematch clears departed seats. The host transfers to a connected player. Empty rooms are deleted once no resumable seats remain; a 30-minute inactivity cleanup remains as a fallback.
 
 The per-tab resume token is a random 256-bit bearer secret in `sessionStorage`. It is never broadcast in room state. Display names persist in `localStorage`; there are no accounts or cross-device player statistics. Server restarts lose active rooms and their resume tokens.
 
@@ -118,3 +118,9 @@ The editable project is under this workspace's `outputs/cinammon/`; synced ChatG
 ## Deployment
 
 Follow [DEPLOYMENT.md](DEPLOYMENT.md). The local game is complete; external hosting and Supabase credentials are not provisioned. Deploy one persistent server instance until room storage moves to Redis or another shared coordinator. The included game engine is separated from transport to make that upgrade practical, but multiple independent server replicas are not supported today.
+
+## Finishing touches
+
+`lib/sounds.ts` synthesizes short click, accepted-word, invalid-answer, and end-game sounds using Web Audio. There are no audio downloads or paid APIs. Sound starts after a user gesture; the navigation mute button persists its setting in localStorage. `app/icon.svg` is a self-contained outline of C from the supplied Anthropic Display Bold Italic font, in cinnamon orange.
+
+Repeat checks also use verified WordNet derivational/pertainym relationships with shared stems, plus reviewed groups in `data/family-overrides.json`. `data/families.json` is generated. These families only prevent repeated scoring; they do not accept unrelated words or alter frequency estimates. The resource is conservative and cannot guarantee every English derivation is covered. Results now show the rarest word and longest accepted typed spelling, counting letters and excluding punctuation.

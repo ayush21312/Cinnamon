@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { Reply, RoomState, Settings, Submission, TypingUpdate } from '../lib/types';
 import WordArt from './WordArt';
+import { GameSounds, type SoundEffect } from '../lib/sounds';
 import { animate, useReducedMotion } from 'motion/react';
 import { parseRoomCode } from '../lib/room-code';
 
@@ -45,39 +46,28 @@ export default function Page() {
     [offset, setOffset] = useState(0);
   const [draft, setDraft] = useState<Settings>(defaults),
     [copied, setCopied] = useState(false),
-    [sound, setSound] = useState(false);
+    [sound, setSound] = useState(true);
   const [reveal, setReveal] = useState<Submission | null>(null);
   const [colorblind, setColorblind] = useState(false);
   const [autocorrect, setAutocorrect] = useState(true);
   const latestSubmission = useRef(''),
-    soundRef = useRef(false),
-    audio = useRef<AudioContext | null>(null),
+    soundRef = useRef(true),
+    audio = useRef<GameSounds | null>(null),
     modal = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     soundRef.current = sound;
   }, [sound]);
-  function chime() {
-    try {
-      if (!soundRef.current) return;
-      const ctx = audio.current ?? new AudioContext();
-      audio.current = ctx;
-      void ctx.resume();
-      const oscillator = ctx.createOscillator(),
-        gain = ctx.createGain();
-      oscillator.connect(gain);
-      gain.connect(ctx.destination);
-      oscillator.frequency.setValueAtTime(440, ctx.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.04, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.26);
-    } catch {
-      /* Audio is optional. */
-    }
+  function playSound(effect: SoundEffect) {
+    if (!soundRef.current) return;
+    audio.current ??= new GameSounds();
+    audio.current.play(effect);
   }
+  const finishedMatch = useRef('');
   useEffect(() => {
     setName(localStorage.getItem('cinammon-name') ?? '');
+    const savedSound = localStorage.getItem('cinammon-sound') !== 'false';
+    setSound(savedSound);
+    soundRef.current = savedSound;
     setColorblind(localStorage.getItem('cinammon-colorblind') === 'true');
     setAutocorrect(localStorage.getItem('cinammon-autocorrect') !== 'false');
     try {
@@ -133,7 +123,13 @@ export default function Page() {
       if (latest && latest.id !== latestSubmission.current) {
         latestSubmission.current = latest.id;
         setReveal(latest);
-        chime();
+        playSound('accepted');
+      }
+    });
+    client.on('state', (state: RoomState) => {
+      if (state.phase === 'results' && state.matchId !== finishedMatch.current) {
+        finishedMatch.current = state.matchId;
+        playSound('finish');
       }
     });
     client.on('typing', (draft: TypingUpdate) => {
@@ -152,7 +148,8 @@ export default function Page() {
       clearInterval(timer);
       client.disconnect();
       socket.current = null;
-      void audio.current?.close();
+      audio.current?.close();
+      audio.current = null;
     };
   }, []);
   useEffect(() => {
@@ -219,6 +216,7 @@ export default function Page() {
       }
       if (!reply.ok) {
         setError(reply.error ?? 'Please try again.');
+        if (event === 'submit') playSound('invalid');
         input.current?.focus();
         return;
       }
@@ -282,21 +280,38 @@ export default function Page() {
     ? Math.min(room.settings.turnSeconds, Math.max(0, (room.deadline - clock - offset) / 1000))
     : 0;
   const isTurn = room?.activeId === me && connected;
-  const ranked = room ? [...room.players].sort((a, b) => b.score - a.score) : [];
-  const highest = room?.history.reduce<Submission | null>(
-    (best, item) => (!best || item.points > best.points ? item : best),
+  const ranked = room
+    ? [...room.players].sort(
+        (a, b) => Number(!!a.eliminated) - Number(!!b.eliminated) || b.score - a.score,
+      )
+    : [];
+  const longest = room?.history.reduce<Submission | null>(
+    (best, item) =>
+      !best ||
+      (item.originalWord ?? item.word).replace(/[^a-z]/gi, '').length >
+        (best.originalWord ?? best.word).replace(/[^a-z]/gi, '').length
+        ? item
+        : best,
     null,
   );
+  const playingPlayers = room?.players.filter((p) => !p.eliminated) ?? [];
   const rarest = room?.history
     .filter((s) => s.zipf !== null)
     .reduce<Submission | null>(
       (best, item) => (!best || (item.zipf ?? 9) < (best.zipf ?? 9) ? item : best),
       null,
     );
-  const winners = ranked.filter((p) => p.score === ranked[0]?.score);
+  const winners = ranked.filter(
+    (p) => !p.eliminated && p.score === ranked.find((p) => !p.eliminated)?.score,
+  );
   return (
     <MotionConfig reducedMotion="user">
-      <div className={`site-shell ${colorblind ? 'colorblind-mode' : ''}`}>
+      <div
+        className={`site-shell ${colorblind ? 'colorblind-mode' : ''}`}
+        onClickCapture={(event) => {
+          if ((event.target as HTMLElement).closest('button:not(:disabled)')) playSound('click');
+        }}
+      >
         <header className="nav">
           <a
             className="brand"
@@ -338,7 +353,13 @@ export default function Page() {
             <button
               aria-label={sound ? 'Mute sound' : 'Enable sound'}
               className="icon-button"
-              onClick={() => setSound(!sound)}
+              onClick={() => {
+                const enabled = !sound;
+                soundRef.current = enabled;
+                setSound(enabled);
+                localStorage.setItem('cinammon-sound', String(enabled));
+                if (enabled) playSound('click');
+              }}
             >
               {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
             </button>
@@ -508,10 +529,10 @@ export default function Page() {
               </div>
               <div className="player-circle" aria-label="Players around the prompt">
                 <div className="circle-outline" aria-hidden="true" />
-                {room.players.map((p, index) => {
+                {playingPlayers.map((p, index) => {
                   const angle =
-                    (index / room.players.length) * Math.PI * 2 -
-                    (room.players.length === 2 ? Math.PI : Math.PI / 2);
+                    (index / playingPlayers.length) * Math.PI * 2 -
+                    (playingPlayers.length === 2 ? Math.PI : Math.PI / 2);
                   const lastWord = room.history.findLast(
                     (s) => s.playerId === p.id && s.prompt === room.prompt,
                   );
@@ -666,7 +687,7 @@ export default function Page() {
               <p>
                 {winners.length > 1
                   ? `${winners.map((p) => p.name).join(' & ')} share first place.`
-                  : 'Game over'}
+                  : room.lastEvent?.message?.startsWith('Game ended:') ? room.lastEvent.message : 'Game over'}
               </p>
               <div className="final-reveal">
                 <AnimatePresence>
@@ -681,7 +702,7 @@ export default function Page() {
                   </div>
                   {ranked.map((p, i) => (
                     <div
-                      className={`leader-row ${p.score === ranked[0].score ? 'winner-row' : ''}`}
+                      className={`leader-row ${!p.eliminated && p.score === ranked[0].score ? 'winner-row' : ''}`}
                       key={p.id}
                     >
                       <span className="place">
@@ -692,16 +713,17 @@ export default function Page() {
                       </span>
                       <strong>
                         {p.name}
+                        {p.eliminated && <small> (left)</small>}
                         {p.id === me && <small> you</small>}
                       </strong>
-                      {p.score === ranked[0].score && <Crown size={18} />}
+                      {!p.eliminated && p.score === ranked[0].score && <Crown size={18} />}
                       <b>{p.score}</b>
                     </div>
                   ))}
                 </div>
                 <div className="highlights">
                   <Highlight label="RAREST WORD" submission={rarest} room={room} />
-                  <Highlight label="HIGHEST-SCORING WORD" submission={highest} room={room} />
+                  <Highlight label="LONGEST WORD" submission={longest} room={room} longest />
                 </div>
               </div>
               <div className="results-actions">
@@ -1006,7 +1028,9 @@ function Highlight({
   label,
   submission,
   room,
+  longest = false,
 }: {
+  longest?: boolean;
   label: string;
   submission: Submission | null | undefined;
   room: RoomState;
@@ -1014,11 +1038,19 @@ function Highlight({
   return (
     <div className="paper highlight">
       <span className="field-label">{label}</span>
-      <h3>{submission?.word ?? '—'}</h3>
+      <h3>
+        {submission
+          ? longest
+            ? (submission.originalWord ?? submission.word)
+            : submission.word
+          : '—'}
+      </h3>
       {submission ? (
         <>
           <span className={`tier-tag tier-${submission.tierIndex}`}>
-            {submission.tier} · +{submission.points}
+            {longest
+              ? `${(submission.originalWord ?? submission.word).replace(/[^a-z]/gi, '').length} letters`
+              : `${submission.tier} · +${submission.points}`}
           </span>
           <p>
             {room.players.find((p) => p.id === submission.playerId)?.name} ·{' '}

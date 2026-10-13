@@ -34,13 +34,13 @@ npm run words:check
 npm test
 ```
 
-Python is needed only to rebuild data. The generator downloads WordNet once to `work/nltk`, uses measured wordfreq frequencies, and writes `words.json`, `lexical.json`, `forms.json`, and `prompts.json`. The generated prompt list indexes the word bank; How to play shows the seven rarity tiers instead. Avoid editing generated files directly: the next build replaces them.
+Python is needed only to rebuild data. The generator downloads WordNet once to `work/nltk`, uses measured wordfreq frequencies, and writes `words.json`, `lexical.json`, `forms.json`, `families.json`, and `prompts.json`. The generated prompt list indexes the word bank; How to play shows the seven rarity tiers instead. Avoid editing generated files directly: the next build replaces them.
 
 In development, restart the game server after data edits so its in-memory bank reloads. For production, run `npm run build`, then restart both frontend and game server. Server restarts lose active rooms. To run locally after extracting the source, use `npm ci` and `npm run dev`.
 
 ## Current expansion
 
-The bundled export now contains **109,219** recognized lemmas/attested inflected words and **6,516** prompt-specific WordNet relationships, plus the curated bank. WordNet relationships include synonyms, parts/substances, and children/grandchildren in its hierarchy. More dictionary entries do not mean every word is valid for every prompt. Review new associations and playtest them; lexical senses can still be broader than intended.
+The bundled export now contains **109,230** recognized lemmas/attested inflected words and **6,709** prompt-specific WordNet relationships, plus the curated bank. WordNet relationships include synonyms, parts/substances, and children/grandchildren in its hierarchy. More dictionary entries do not mean every word is valid for every prompt. Review new associations and playtest them; lexical senses can still be broader than intended.
 
 ## Slight spelling errors and repeat prevention
 
@@ -52,4 +52,14 @@ WordNet can assign multiple roots to an ambiguous form; the repeat rule conserva
 
 ## Expanded curated bank
 
-All 145 prompts now have at least 50 separately playable curated answers (the verified minimum is 60). There are 11,113 curated prompt-answer pairs. Synonyms, objects, actions, and contextual relationships are explicitly listed; plural/tense variants do not inflate this minimum. `npm run words:check` enforces the minimum and the automated coverage test checks every entry with autocorrection disabled.
+All 155 prompts now have at least 50 separately playable curated answers (the verified minimum is 64). There are 14,445 curated prompt-answer pairs. Synonyms, objects, actions, and contextual relationships are explicitly listed; plural/tense variants do not inflate this minimum. `npm run words:check` enforces the minimum and the automated coverage test checks every entry with autocorrection disabled.
+
+## Derived-word repeats
+
+The rebuild also exports verified derivational families. For example tranquil/tranquility/tranquillity and brave/bravery cannot score separately for a prompt. To fill a verified gap, add a related-word group to `data/family-overrides.json`, then rebuild and run checks/tests. Avoid grouping synonyms with different roots merely because they have similar meanings. The current expanded rules retain at least 64 separately playable curated answers for every prompt.
+
+## Everyday vocabulary expansion
+
+Added pizza, hospital, farm, market, phone, bus, bakery, restaurant, park, and pool. Every existing prompt received additional familiar, everyday associations. Examples include ocean → blue/boat/swimming/seaweed, forest → woods, night → pajamas, and music → headphones.
+
+Frequency helped filter candidate additions, but reviewed familiar clothing, everyday objects, and British/American spellings were retained even when less frequent in the corpus. This selection does not change rarity thresholds or fabricate frequencies. All 155 prompts have at least 64 separately playable curated answers.

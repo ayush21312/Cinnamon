@@ -71,3 +71,19 @@ This is a functioning classic multiplayer MVP. The conservative offline associat
 - 11,113 curated associations; generated dictionary has 109,219 entries. Rarity remains measured by wordfreq.
 - Preserved existing user edits, merged the supplied bank, filtered unsupported additions, and removed obvious unrelated entries.
 - `npm run words:check`, TypeScript validation, and all 40 tests passed. The coverage test now validates every curated answer with autocorrection disabled and verifies at least 50 answers can be accepted in sequence without a word-family repeat.
+
+## October 12 finishing touches
+
+- 46 tests passed in five suites, including a two-client socket test for offline-seat expiry, automatic match ending, and token revocation. Engine tests cover active-seat removal, turn skipping, rematch cleanup, reconnection grace, and stale socket protection.
+- Repeat tests cover tranquil/tranquility/tranquillity, happy/happiness, and brave/bravery; unrelated coral/corral and universe/university remain distinct.
+- Word-bank check passed for all 145 prompts with a minimum of 51 separately playable curated answers.
+- Production Next.js build passed and generated `/icon.svg` with the correct metadata convention.
+- Browser preview was blocked by the browser security tool. No interactive visual or listening verification is claimed for this update. Sound synthesis is implemented and compiled; manually check the four effects after a browser gesture.
+- Changes are prepared locally and have not been pushed to the hosted game in this update.
+
+## October 12 everyday vocabulary expansion
+
+- Added 10 new recognizable prompts and reviewed basic-answer additions for every existing prompt.
+- 155 prompts, 14,445 curated associations, 109,230 dictionary entries. Minimum separately playable curated answers: 64.
+- Word-bank checks, all 47 tests, and TypeScript validation passed. The new regression test checks obvious answers across all ten new prompts, existing everyday gaps, and unrelated-answer rejection.
+- Rebuilt frequency, lexical, morphology, derivational-family, and prompt exports. Changes remain local for review.

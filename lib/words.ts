@@ -2,6 +2,8 @@ import bank from '../data/associations.json';
 import dictionary from '../data/words.json';
 import lexical from '../data/lexical.json';
 import formsData from '../data/forms.json';
+import familyData from '../data/families.json';
+const derivations = familyData as Record<string, string>;
 export const prompts = Object.keys(bank);
 const curated = bank as Record<string, string>;
 const frequencies = dictionary as Record<string, number>;
@@ -19,7 +21,19 @@ function lexicalReason(prompt: string, word: string) {
     : undefined;
 }
 export function wordFamily(word: string): string[] {
-  return [...new Set([word, ...formsOf(word)])];
+  const roots = [word, ...formsOf(word)];
+  return [
+    ...new Set([
+      ...roots,
+      ...roots
+        .filter((root) => Object.hasOwn(derivations, root))
+        .map((root) => `family:${derivations[root]}`),
+    ]),
+  ];
+}
+function matchesPrompt(word: string, prompt: string) {
+  const roots = new Set([prompt, ...formsOf(prompt)]);
+  return [word, ...formsOf(word)].some((root) => roots.has(root));
 }
 export function sameWordFamily(a: string, b: string) {
   const family = new Set(wordFamily(a));
@@ -112,7 +126,7 @@ export class OfflineValidator implements AssociationValidator {
     const originalWord = word;
     if (!/^[a-z][a-z'-]{1,31}$/.test(word))
       return { valid: false, word, reason: 'Not found in the word list' };
-    if (sameWordFamily(word, prompt))
+    if (matchesPrompt(word, prompt))
       return {
         valid: false,
         word,
@@ -140,7 +154,7 @@ export class OfflineValidator implements AssociationValidator {
           reason: 'Not found in the word list',
         };
     }
-    if (sameWordFamily(word, prompt) || used.some((played) => sameWordFamily(played, word)))
+    if (matchesPrompt(word, prompt) || used.some((played) => sameWordFamily(played, word)))
       return {
         valid: false,
         word,

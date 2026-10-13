@@ -5,6 +5,7 @@ export type Settings = {
   points: number[];
 };
 export type Player = {
+  eliminated?: boolean;
   id: string;
   name: string;
   connected: boolean;

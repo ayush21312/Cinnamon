@@ -4,4 +4,5 @@ work
 data/words.json
 data/lexical.json
 data/forms.json
+data/families.json
 package-lock.json

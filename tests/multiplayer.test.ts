@@ -263,4 +263,41 @@ describe('two actual Socket.IO clients', () => {
     );
     expect(replies.some((r) => r.error?.includes('Too many'))).toBe(true);
   });
+  it('ends a public match and revokes the offline seat after the reconnect grace', async () => {
+    let now = 1000;
+    const server = createGameServer({ now: () => now, tickMs: 10 });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.http.listen(0, '127.0.0.1', resolve));
+    const address = server.http.address();
+    if (!address || typeof address === 'string') throw Error();
+    const url = `http://127.0.0.1:${address.port}`;
+    const a = await client(url),
+      b = await client(url);
+    const created = await request(a, 'create', { name: 'Ada' });
+    const joined = await request(b, 'join', { name: 'Ben', code: created.code });
+    await request(a, 'settings', { ...defaultSettings, turnSeconds: 60 });
+    await request(a, 'ready', true);
+    await request(b, 'ready', true);
+    await request(a, 'start');
+    const offline = stateNext(
+      a,
+      (s) => !s.players.find((p) => p.id === joined.playerId)?.connected,
+    );
+    b.disconnect();
+    await offline;
+    const ended = stateNext(a, (s) => s.phase === 'results');
+    now += 10001;
+    const result = await ended;
+    expect(result.players.find((p) => p.id === joined.playerId)?.eliminated).toBe(true);
+    const replacement = await client(url);
+    expect(
+      (
+        await request(replacement, 'resume', {
+          code: created.code,
+          playerId: joined.playerId,
+          token: joined.token,
+        })
+      ).ok,
+    ).toBe(false);
+  });
 });

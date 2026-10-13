@@ -41,6 +41,32 @@ freq = {w: zipf_frequency(w, 'en', wordlist='large') for w in sorted(dictionary)
 (root / 'data/lexical.json').write_text(json.dumps(lexical, separators=(',', ':')))
 (root / 'data/forms.json').write_text(json.dumps(forms, separators=(',', ':')))
 (root / 'data/prompts.json').write_text(json.dumps(sorted(curated), indent=2))
+# Verified derivational families for repeat prevention only. These links do not
+# validate associations or change frequency scoring. Shared stems prevent broad
+# WordNet links between differently spelled concepts from becoming duplicates.
+parent = {}
+def find(w):
+    parent.setdefault(w, w)
+    if parent[w] != w: parent[w] = find(parent[w])
+    return parent[w]
+def link(a, b):
+    a, b = find(a), find(b)
+    if a != b: parent[max(a,b)] = min(a,b)
+for syn in wn.all_synsets():
+    for lemma in syn.lemmas():
+        a = lemma.name().lower()
+        if a not in dictionary: continue
+        for related in lemma.derivationally_related_forms() + lemma.pertainyms():
+            b = related.name().lower()
+            if b not in dictionary or a == b: continue
+            prefix = os.path.commonprefix([a, b])
+            if len(prefix) >= 4 and len(prefix) >= min(len(a), len(b)) / 2:
+                link(a, b)
+# Explicitly reviewed gaps in the lexical resource, including alternate spelling.
+for group in json.loads((root / 'data/family-overrides.json').read_text(encoding='utf-8')):
+    for word in group: link(group[0], word)
+families = {w: find(w) for w in sorted(parent)}
+(root / 'data/families.json').write_text(json.dumps(families, separators=(',', ':')))
 print(f'{len(curated)} prompts, {len(dictionary)} dictionary words; offline Zipf values generated.')
 for word in ['water','fish','coral','submarine','abyssal','bathymetry','petrichor','thaumaturgy']:
     print(word, freq.get(word))

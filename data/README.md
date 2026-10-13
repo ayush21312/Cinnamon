@@ -1,6 +1,6 @@
 # Offline word data
 
-The checked-in files are generated from **wordfreq 3.1.1** by Robyn Speer and **Princeton WordNet 3.0** through NLTK 3.9.2. The server does not download a dictionary at runtime. `words.json` maps 109,219 WordNet single-word lemmas, verified inflections, and explicitly curated English words to English large-list Zipf frequency estimates. `forms.json` holds verified noun/verb roots; `prompts.json` is the category list shown in How to play. `lexical.json` holds prompt-specific structural relations with definitions as explanations. `associations.json` contains 145 hand-authored recognizable prompt topics and direct/contextual answers.
+The checked-in files are generated from **wordfreq 3.1.1** by Robyn Speer and **Princeton WordNet 3.0** through NLTK 3.9.2. The server does not download a dictionary at runtime. `words.json` maps 109,230 WordNet single-word lemmas, verified inflections, and explicitly curated English words to English large-list Zipf frequency estimates. `forms.json` holds verified noun/verb roots; `prompts.json` is the category list shown in How to play. `lexical.json` holds prompt-specific structural relations with definitions as explanations. `associations.json` contains 155 hand-authored recognizable prompt topics and direct/contextual answers.
 
 ## Frequency thresholds
 

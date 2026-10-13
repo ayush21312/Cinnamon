@@ -22,6 +22,7 @@ export const defaultSettings: Settings = {
   rounds: 3,
   points: defaultPoints,
 };
+export const disconnectGraceMs = 10_000;
 export const nameSchema = z
   .string()
   .trim()
@@ -187,9 +188,11 @@ export class GameRoom {
       s.used = [];
       s.prompt = this.deck[s.round - 1];
       this.beginTurn((s.round - 1) % s.players.length);
+      if (this.player(s.activeId).eliminated) this.advance();
       return;
     }
     this.beginTurn((index + 1) % s.players.length);
+    if (this.player(s.activeId).eliminated) this.advance();
   }
   tick() {
     if (this.state.phase === 'playing' && this.now() >= this.state.deadline) {
@@ -216,8 +219,10 @@ export class GameRoom {
     this.touch();
   }
   leave(id: string, socketId: string) {
+    if (!this.owns(id, socketId)) return;
     if (this.state.phase === 'playing') {
       this.disconnect(id, socketId);
+      this.eliminate(id);
       return;
     }
     this.identities.delete(id);
@@ -227,20 +232,45 @@ export class GameRoom {
     this.touch();
   }
   pruneDisconnected() {
-    if (this.state.phase === 'playing') return false;
     let changed = false;
     for (const [id, identity] of this.identities)
-      if (identity.disconnectedAt !== null && this.now() - identity.disconnectedAt > 120_000) {
-        this.identities.delete(id);
-        this.state.players = this.state.players.filter((p) => p.id !== id);
+      if (
+        identity.disconnectedAt !== null &&
+        this.now() - identity.disconnectedAt >= disconnectGraceMs
+      ) {
+        if (this.state.phase !== 'lobby') this.eliminate(id);
+        else {
+          this.identities.delete(id);
+          this.state.players = this.state.players.filter((p) => p.id !== id);
+        }
         changed = true;
       }
     return changed;
+  }
+  private eliminate(id: string) {
+    const player = this.player(id);
+    player.eliminated = true;
+    player.connected = false;
+    player.ready = false;
+    this.identities.delete(id);
+    if (this.state.typing?.playerId === id) this.state.typing = null;
+    const remaining = this.state.players.filter((p) => !p.eliminated);
+    if (remaining.length <= 1) {
+      this.state.phase = 'results';
+      this.state.deadline = 0;
+      this.state.activeId = '';
+      this.state.typing = null;
+      this.state.lastEvent = { id: randomUUID(), message: 'Game ended: only one player remains.' };
+    } else if (this.state.activeId === id) this.advance();
+    this.touch();
   }
   rematch(id: string) {
     this.host(id);
     if (this.state.phase !== 'results') throw Error('Finish this game first.');
     this.state.phase = 'lobby';
+    this.state.players = this.state.players.filter(
+      (p) => !p.eliminated && this.identities.has(p.id),
+    );
     this.state.players.forEach((p) => {
       p.score = 0;
       p.ready = false;

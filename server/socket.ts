@@ -235,7 +235,13 @@ export function createGameServer(options: Options = {}) {
   });
   const interval = setInterval(() => {
     for (const [code, room] of rooms) {
-      if (room.tick() || room.pruneDisconnected()) broadcast(room);
+      const expired = room.tick();
+      const pruned = room.pruneDisconnected();
+      if (expired || pruned) broadcast(room);
+      if (room.identities.size === 0) {
+        rooms.delete(code);
+        continue;
+      }
       if (!room.state.players.some((p) => p.connected) && now() - room.lastActivity > 30 * 60_000)
         rooms.delete(code);
     }
