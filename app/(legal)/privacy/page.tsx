@@ -44,7 +44,7 @@ export default function Privacy() {
       </p>
       <h2>Word-list tools</h2>
       <p>
-        Word lists may be expanded using Datamuse during development. That tool sends prompt words
+        Word lists are expanded using the Datamuse API. The tool sends prompt words
         to Datamuse, not player names or live submissions. Gameplay validation runs on the game
         server using local word data.
       </p>
@@ -57,8 +57,7 @@ export default function Privacy() {
       <p>
         The game does not ask for your age. Do not enter personal information into display names or
         answers. If you believe a child’s personal information has been entered, or you want to ask
-        about access or deletion, see <a href="/contact">Contact</a>. Contact details are currently
-        being prepared.
+        about access or deletion, see <a href="/contact">Contact</a>.
       </p>
       <h2>Changes</h2>
       <p>

@@ -3,7 +3,7 @@ export default function Contact() {
   return (
     <>
       <h1>Contact</h1>
-      <p>For game feedback, word-list corrections, or privacy questions:</p>
+      <p>For feedback or questions:</p>
       {email ? (
         <p>
           <a href={`mailto:${email}`}>{email}</a>
@@ -11,10 +11,6 @@ export default function Contact() {
       ) : (
         <>
           <p className="contact-placeholder">contact@example.com</p>
-          <p>
-            This is a placeholder, not a working contact address. Contact details have not been
-            published yet. Do not send personal information to this address.
-          </p>
         </>
       )}
     </>
