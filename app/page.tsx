@@ -20,7 +20,9 @@ import {
 } from 'lucide-react';
 import type { Reply, RoomState, Settings, Submission, TypingUpdate } from '../lib/types';
 import WordArt from './WordArt';
+import RoomChat from './RoomChat';
 import { GameSounds, type SoundEffect } from '../lib/sounds';
+import { stateSound } from '../lib/game-feedback';
 import { animate, useReducedMotion } from 'motion/react';
 import { parseRoomCode } from '../lib/room-code';
 
@@ -50,6 +52,7 @@ export default function Page() {
   const [reveal, setReveal] = useState<Submission | null>(null);
   const [colorblind, setColorblind] = useState(false);
   const [autocorrect, setAutocorrect] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const latestSubmission = useRef(''),
     soundRef = useRef(true),
     audio = useRef<GameSounds | null>(null),
@@ -62,7 +65,7 @@ export default function Page() {
     audio.current ??= new GameSounds();
     audio.current.play(effect);
   }
-  const finishedMatch = useRef('');
+  const previousState = useRef<RoomState | null>(null);
   useEffect(() => {
     setName(localStorage.getItem('cinammon-name') ?? '');
     const savedSound = localStorage.getItem('cinammon-sound') !== 'false';
@@ -105,6 +108,7 @@ export default function Page() {
         });
     });
     client.on('disconnect', (reason: string) => {
+      previousState.current = null;
       setConnected(false);
       if (reason === 'io server disconnect') {
         identity.current = null;
@@ -117,19 +121,16 @@ export default function Page() {
       setConnected(false);
     });
     client.on('state', (state: RoomState) => {
+      const previous = previousState.current;
+      const cue = stateSound(previous, state, identity.current?.playerId ?? '');
+      previousState.current = state;
+      if (cue) playSound(cue);
       setOffset(state.serverNow - Date.now());
       setRoom(state);
       const latest = state.history.at(-1);
       if (latest && latest.id !== latestSubmission.current) {
         latestSubmission.current = latest.id;
-        setReveal(latest);
-        playSound('accepted');
-      }
-    });
-    client.on('state', (state: RoomState) => {
-      if (state.phase === 'results' && state.matchId !== finishedMatch.current) {
-        finishedMatch.current = state.matchId;
-        playSound('finish');
+        if (previous && previous.matchId === state.matchId) setReveal(latest);
       }
     });
     client.on('typing', (draft: TypingUpdate) => {
@@ -215,8 +216,19 @@ export default function Page() {
         return;
       }
       if (!reply.ok) {
+        playSound('invalid');
         setError(reply.error ?? 'Please try again.');
-        if (event === 'submit') playSound('invalid');
+        if (event === 'submit') {
+          setWord('');
+          if (room) {
+            setRoom((current) =>
+              current && current.turnId === room.turnId
+                ? { ...current, typing: { playerId: me, turnId: room.turnId, word: '' } }
+                : current,
+            );
+            socket.current?.emit('typing', { word: '', turnId: room.turnId });
+          }
+        }
         input.current?.focus();
         return;
       }
@@ -245,6 +257,7 @@ export default function Page() {
       setMe('');
       setReveal(null);
       latestSubmission.current = '';
+      previousState.current = null;
       history.replaceState(null, '', location.pathname);
     });
   }
@@ -307,9 +320,20 @@ export default function Page() {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className={`site-shell ${colorblind ? 'colorblind-mode' : ''}`}
+        className={`site-shell ${colorblind ? 'colorblind-mode' : ''} ${room && chatOpen ? 'chat-expanded' : ''}`}
+        onKeyDownCapture={(event) => {
+          if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) {
+            audio.current ??= new GameSounds();
+            audio.current.setEnabled(soundRef.current);
+            audio.current.unlock();
+          }
+        }}
         onClickCapture={(event) => {
-          if ((event.target as HTMLElement).closest('button:not(:disabled)')) playSound('click');
+          audio.current ??= new GameSounds();
+          audio.current.setEnabled(soundRef.current);
+          audio.current.unlock();
+          const button = (event.target as Element).closest('button:not(:disabled)');
+          if (button && !button.hasAttribute('data-silent') && event.detail < 2) playSound('click');
         }}
       >
         <header className="nav">
@@ -352,13 +376,16 @@ export default function Page() {
           <div className="nav-actions">
             <button
               aria-label={sound ? 'Mute sound' : 'Enable sound'}
+              aria-pressed={!sound}
+              data-silent
               className="icon-button"
               onClick={() => {
                 const enabled = !sound;
                 soundRef.current = enabled;
+                audio.current?.setEnabled(enabled);
                 setSound(enabled);
                 localStorage.setItem('cinammon-sound', String(enabled));
-                if (enabled) playSound('click');
+                if (enabled) audio.current?.unlock();
               }}
             >
               {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -375,6 +402,17 @@ export default function Page() {
             <WifiOff size={17} /> Reconnecting… your seat is reserved. The server timer keeps
             running.
           </div>
+        )}
+        {room && (
+          <RoomChat
+            key={room.code}
+            socket={socket.current}
+            code={room.code}
+            me={me}
+            connected={connected}
+            open={chatOpen}
+            onToggle={() => setChatOpen((value) => !value)}
+          />
         )}
         <main>
           {!room && (
@@ -409,6 +447,15 @@ export default function Page() {
               </div>
               <WordArt />
             </motion.div>
+          )}
+          {!room && (
+            <footer className="legal-footer">
+              <a href="/contact">Contact</a>
+              <span aria-hidden="true">|</span>
+              <a href="/privacy">Privacy</a>
+              <span aria-hidden="true">|</span>
+              <a href="/terms">Terms</a>
+            </footer>
           )}
           {room?.phase === 'lobby' && (
             <motion.section
@@ -617,13 +664,22 @@ export default function Page() {
                     {Math.ceil(seconds)}
                     <small>s</small>
                   </div>
-                  <div className="turn-label">
+                  <motion.div
+                    className="turn-label"
+                    key={room.turnId}
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
                     {isTurn ? 'Your turn' : `${active?.name}’s turn`}
-                  </div>
+                  </motion.div>
                 </div>
               </div>
               <div className="answer-controls">
-                <form onSubmit={submit} className={`word-form ${isTurn ? 'your-turn' : ''}`}>
+                <form
+                  onSubmit={submit}
+                  className={`word-form ${isTurn ? 'your-turn' : ''} ${error ? 'answer-invalid' : ''}`}
+                >
                   <input
                     ref={input}
                     aria-label="Your related word"
@@ -687,7 +743,9 @@ export default function Page() {
               <p>
                 {winners.length > 1
                   ? `${winners.map((p) => p.name).join(' & ')} share first place.`
-                  : room.lastEvent?.message?.startsWith('Game ended:') ? room.lastEvent.message : 'Game over'}
+                  : room.lastEvent?.message?.startsWith('Game ended:')
+                    ? room.lastEvent.message
+                    : 'Game over'}
               </p>
               <div className="final-reveal">
                 <AnimatePresence>
@@ -891,17 +949,11 @@ export default function Page() {
                     <GameSettings
                       value={draft}
                       disabled={!!room && (!host || room.phase !== 'lobby')}
-                      onChange={setDraft}
-                    />
-                    <button
-                      className="primary full"
-                      disabled={!!room && (!host || room.phase !== 'lobby')}
-                      onClick={() => {
-                        if (room) send('settings', draft);
+                      onChange={(settings) => {
+                        setDraft(settings);
+                        if (room) send('settings', settings);
                       }}
-                    >
-                      Save settings <Check size={17} />
-                    </button>
+                    />
                   </>
                 )}
                 {error && (

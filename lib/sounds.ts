@@ -1,20 +1,65 @@
-export type SoundEffect = 'click' | 'accepted' | 'invalid' | 'finish';
-const melodies: Record<SoundEffect, number[]> = {
-  click: [900],
-  accepted: [660, 880, 1108],
-  invalid: [220, 165],
-  finish: [523, 659, 784, 1047],
+export type SoundEffect = 'click' | 'accepted' | 'invalid' | 'turn' | 'finish';
+const cues: Record<SoundEffect, { notes: number[]; step: number; volume: number }> = {
+  click: { notes: [720], step: 0.035, volume: 0.018 },
+  accepted: { notes: [523, 659, 784], step: 0.065, volume: 0.033 },
+  invalid: { notes: [294, 220], step: 0.085, volume: 0.028 },
+  turn: { notes: [440, 554], step: 0.06, volume: 0.024 },
+  finish: { notes: [523, 659, 784, 1047], step: 0.12, volume: 0.038 },
 };
 export class GameSounds {
   private context: AudioContext | null = null;
-  play(effect: SoundEffect) {
+  private enabled = true;
+  private voices = new Set<OscillatorNode>();
+  private lastPlayed = new Map<SoundEffect, number>();
+  private playingUntil = 0;
+  private currentEffect: SoundEffect | null = null;
+  constructor(private createContext = () => new AudioContext()) {}
+  // Unlock on a gesture; do not queue historical cues while audio is blocked.
+  unlock() {
+    if (!this.enabled) return;
     try {
-      const ctx = this.context ?? new AudioContext();
-      this.context = ctx;
-      void ctx.resume().catch(() => {});
-      const step = effect === 'click' ? 0.045 : effect === 'finish' ? 0.15 : 0.09;
-      melodies[effect].forEach((frequency, index) => {
-        const start = ctx.currentTime + index * step + (effect === 'finish' ? 0.18 : 0);
+      this.context ??= this.createContext();
+      void this.context.resume().catch(() => {});
+    } catch {
+      /* Audio is optional. */
+    }
+  }
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    if (!enabled) this.stop();
+  }
+  private stop() {
+    for (const voice of this.voices) {
+      try {
+        voice.stop();
+      } catch {
+        /* Already ended. */
+      }
+    }
+    this.voices.clear();
+    this.playingUntil = 0;
+    this.currentEffect = null;
+  }
+  play(effect: SoundEffect): boolean {
+    if (!this.enabled) return false;
+    try {
+      const ctx = (this.context ??= this.createContext());
+      if (ctx.state !== 'running') return false;
+      const now = ctx.currentTime;
+      if (now - (this.lastPlayed.get(effect) ?? -Infinity) < 0.16) return false;
+      // Buttons and turn cues cannot talk over answers or the ending melody.
+      if (
+        now < this.playingUntil &&
+        (effect === 'click' || effect === 'turn' || this.currentEffect === 'finish')
+      )
+        return false;
+      this.stop();
+      this.lastPlayed.set(effect, now);
+      this.currentEffect = effect;
+      const cue = cues[effect];
+      this.playingUntil = now + (cue.notes.length + 0.6) * cue.step;
+      for (const [index, frequency] of cue.notes.entries()) {
+        const start = now + index * cue.step;
         const oscillator = ctx.createOscillator(),
           gain = ctx.createGain();
         oscillator.type = effect === 'click' ? 'triangle' : 'sine';
@@ -22,21 +67,30 @@ export class GameSounds {
         oscillator.connect(gain);
         gain.connect(ctx.destination);
         gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(effect === 'click' ? 0.025 : 0.045, start + 0.008);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + step * 1.7);
-        oscillator.start(start);
-        oscillator.stop(start + step * 1.8);
+        gain.gain.linearRampToValueAtTime(cue.volume, start + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + cue.step * 1.5);
+        this.voices.add(oscillator);
         oscillator.onended = () => {
+          this.voices.delete(oscillator);
           oscillator.disconnect();
           gain.disconnect();
         };
-      });
+        oscillator.start(start);
+        oscillator.stop(start + cue.step * 1.6);
+      }
+      return true;
     } catch {
-      /* Audio is optional and may be blocked until the first gesture. */
+      return false;
     }
   }
   close() {
-    void this.context?.close();
+    this.stop();
+    try {
+      void this.context?.close().catch(() => {});
+    } catch {
+      /* Already closed. */
+    }
     this.context = null;
+    this.lastPlayed.clear();
   }
 }

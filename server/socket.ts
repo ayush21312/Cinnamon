@@ -1,8 +1,9 @@
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { Server, type Socket } from 'socket.io';
 import { z } from 'zod';
 import { GameRoom, nameSchema, roomCode } from './engine';
-import type { Reply, RoomState } from '../lib/types';
+import type { ChatMessage, Reply, RoomState } from '../lib/types';
 type Options = {
   origin?: string | string[];
   saveResult?: ((state: RoomState) => Promise<void>) | null;
@@ -41,6 +42,11 @@ const typingSchema = z
   .strict();
 export function createGameServer(options: Options = {}) {
   const rooms = new Map<string, GameRoom>();
+  // Chat is separate from scoring snapshots and is never saved to Supabase.
+  const chats = new Map<
+    string,
+    { messages: ChatMessage[]; buckets: Map<string, { at: number; count: number }> }
+  >();
   const now = options.now ?? Date.now;
   const http = createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -192,6 +198,49 @@ export function createGameServer(options: Options = {}) {
       room.submit(playerId, word, turnId, autocorrect);
       broadcast(room);
     });
+    handle('chat:history', () => {
+      const { room } = requireSession();
+      return { messages: chats.get(room.state.code)?.messages ?? [] };
+    });
+    handle('chat:send', (payload) => {
+      const { room, playerId } = requireSession();
+      const { text } = z
+        .object({
+          text: z
+            .string()
+            .max(400)
+            .transform((value) =>
+              value
+                .normalize('NFKC')
+                .replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim(),
+            )
+            .pipe(z.string().min(1).max(200)),
+        })
+        .strict()
+        .parse(payload);
+      const player = room.state.players.find(
+        (p) => p.id === playerId && p.connected && !p.eliminated,
+      );
+      if (!player) throw Error('Join a room first.');
+      let chat = chats.get(room.state.code);
+      if (!chat) {
+        chat = { messages: [], buckets: new Map() };
+        chats.set(room.state.code, chat);
+      }
+      const at = now();
+      let bucket = chat.buckets.get(playerId);
+      if (!bucket || at - bucket.at >= 10_000) {
+        bucket = { at, count: 0 };
+        chat.buckets.set(playerId, bucket);
+      }
+      if (++bucket.count > 5) throw Error('Please wait a moment before sending another message.');
+      const message: ChatMessage = { id: randomUUID(), playerId, name: player.name, text, at };
+      chat.messages.push(message);
+      if (chat.messages.length > 50) chat.messages.shift();
+      io.to(room.state.code).emit('chat:message', message);
+    });
     // Drafts are ephemeral: one small event per edit, never a scoring operation.
     // A separate limit lets players type normally without using the action budget.
     socket.on('typing', (payload: unknown, ack: unknown) => {
@@ -240,10 +289,15 @@ export function createGameServer(options: Options = {}) {
       if (expired || pruned) broadcast(room);
       if (room.identities.size === 0) {
         rooms.delete(code);
+        chats.delete(code);
         continue;
       }
-      if (!room.state.players.some((p) => p.connected) && now() - room.lastActivity > 30 * 60_000)
+      if (!room.state.players.some((p) => p.connected) && now() - room.lastActivity > 30 * 60_000) {
         rooms.delete(code);
+        chats.delete(code);
+      }
+      for (const playerId of chats.get(code)?.buckets.keys() ?? [])
+        if (!room.identities.has(playerId)) chats.get(code)?.buckets.delete(playerId);
     }
     for (const [ip, bucket] of buckets) if (now() - bucket.at > 60_000) buckets.delete(ip);
   }, options.tickMs ?? 100);

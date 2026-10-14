@@ -52,14 +52,52 @@ WordNet can assign multiple roots to an ambiguous form; the repeat rule conserva
 
 ## Expanded curated bank
 
-All 155 prompts now have at least 50 separately playable curated answers (the verified minimum is 64). There are 14,445 curated prompt-answer pairs. Synonyms, objects, actions, and contextual relationships are explicitly listed; plural/tense variants do not inflate this minimum. `npm run words:check` enforces the minimum and the automated coverage test checks every entry with autocorrection disabled.
+All 155 prompts now have at least 50 separately playable curated answers (the verified minimum is 70). There are 16,144 curated prompt-answer pairs. Synonyms, objects, actions, and contextual relationships are explicitly listed; plural/tense variants do not inflate this minimum. `npm run words:check` enforces the minimum and the automated coverage test checks every entry with autocorrection disabled.
 
 ## Derived-word repeats
 
-The rebuild also exports verified derivational families. For example tranquil/tranquility/tranquillity and brave/bravery cannot score separately for a prompt. To fill a verified gap, add a related-word group to `data/family-overrides.json`, then rebuild and run checks/tests. Avoid grouping synonyms with different roots merely because they have similar meanings. The current expanded rules retain at least 64 separately playable curated answers for every prompt.
+The rebuild also exports verified derivational families. For example tranquil/tranquility/tranquillity and brave/bravery cannot score separately for a prompt. To fill a verified gap, add a related-word group to `data/family-overrides.json`, then rebuild and run checks/tests. Avoid grouping synonyms with different roots merely because they have similar meanings. The current expanded rules retain at least 70 separately playable curated answers for every prompt.
 
 ## Everyday vocabulary expansion
 
 Added pizza, hospital, farm, market, phone, bus, bakery, restaurant, park, and pool. Every existing prompt received additional familiar, everyday associations. Examples include ocean → blue/boat/swimming/seaweed, forest → woods, night → pajamas, and music → headphones.
 
-Frequency helped filter candidate additions, but reviewed familiar clothing, everyday objects, and British/American spellings were retained even when less frequent in the corpus. This selection does not change rarity thresholds or fabricate frequencies. All 155 prompts have at least 64 separately playable curated answers.
+Frequency helped filter candidate additions, but reviewed familiar clothing, everyday objects, and British/American spellings were retained even when less frequent in the corpus. This selection does not change rarity thresholds or fabricate frequencies. All 155 prompts have at least 70 separately playable curated answers.
+
+## Datamuse expansion (October 13, 2026)
+
+The bundled bank contains 16,144 curated associations across 155 prompts. A development fetch produced 36,503 filtered candidates; 1,699 manually reviewed additions were merged. Every prompt retains at least 70 separately playable curated answers. `data/datamuse-approved.json` records the additions and source. Thanks to the [Datamuse API](https://www.datamuse.com/api/) for candidate suggestions. API rankings never determine rarity or automatically establish a valid relationship.
+
+To fetch another batch (existing prompts only):
+
+```sh
+npm run words:fetch
+# Or fetch just selected prompts:
+npm run words:fetch -- ocean forest pizza
+```
+
+The tool queries related meanings, statistical associations, and synonyms, requesting up to 1,000 results for each query. It filters unsupported phrases, unknown words, proper-name capitalization, and families already used by the prompt/bank. Single-word dictionary recognition can still include ambiguous senses and proper names; review is required. Requests have timeouts and bounded retries for throttling/server errors. Successful responses are cached under `work/datamuse-cache/`; reruns resume using the cache. No requests happen during gameplay. `DATAMUSE_API_KEY` is optional today and server/development only. Check Datamuse's latest access terms before future runs; its published 2027 key transition dates currently differ between sections. Contact the provider about public-app usage and bulk reuse permissions as appropriate; acknowledge its contribution.
+
+Open `work/datamuse-review.json` in VS Code. Change `approved` to `true` only for candidates with a defensible connection to that prompt. Leave weak or uncertain matches false. Then run:
+
+```sh
+npm run words:merge
+npm run words:build
+npm run words:check
+npm test
+```
+
+The merge preserves existing answers, skips repeated families, validates recognized English words, and saves a backup under `work/`. A fresh fetch replaces the review document, so finish your review before fetching again. Clear a cached query file to refresh that query. `work/` is gitignored; only the approved bank and regenerated exports belong in your deployment. Keep frequency scoring based on wordfreq. Missing words need a separately verified dictionary expansion rather than blindly trusting API strings.
+
+## Check counts
+
+Run `npm run words:stats` to list the curated and separately playable answer counts for every prompt. It also saves `work/word-bank-counts.csv`. Separately playable counts exclude repeat families in bank order; lexical fallback can accept additional words. Run `npm run words:check` to verify the bank.
+
+## Manual additions in VS Code
+
+1. Open `data/associations.json` and search for the prompt, such as `"ocean"`.
+2. Append new, genuine English single words to its existing quoted answer string, separated by spaces. Preserve all current entries and valid JSON commas/quotes. Use lowercase. Do not join phrases, add unsupported proper names, or invent spellings. Plurals, tenses and verified derived families cannot earn separate points.
+3. Save, then run `npm run words:build`, `npm run words:check`, `npm test`, and `npm run words:stats`. Python needs wordfreq 3.1.1 and nltk 3.9.2 if not already installed. Rarity is calculated from wordfreq; unavailable frequency gets the safe Unranked score.
+4. Restart local development to load regenerated word data. Commit/push approved source and generated data to update the hosted game. A backend deployment restarts active in-memory rooms.
+
+For a new prompt, add a new JSON key with at least 50 separately playable related word families and run the same rebuild/check workflow. Generated files (`words.json`, `forms.json`, `families.json`, `lexical.json`, `prompts.json`) should not be edited directly.

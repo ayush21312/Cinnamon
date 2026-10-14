@@ -87,3 +87,35 @@ This is a functioning classic multiplayer MVP. The conservative offline associat
 - 155 prompts, 14,445 curated associations, 109,230 dictionary entries. Minimum separately playable curated answers: 64.
 - Word-bank checks, all 47 tests, and TypeScript validation passed. The new regression test checks obvious answers across all ten new prompts, existing everyday gaps, and unrelated-answer rejection.
 - Rebuilt frequency, lexical, morphology, derivational-family, and prompt exports. Changes remain local for review.
+
+## October 13, 2026 — Datamuse and final interface updates
+
+- Fetched all 155 prompts through Datamuse (related meanings, triggers, synonyms), caching successful responses. 36,503 filtered candidate prompt-answer associations were collected; 1,755 candidates were selected after manual review, and 1,699 merged after family deduplication. Current bank: 16,144 curated associations, 109,230 dictionary entries; wordfreq scoring remains unchanged.
+- `npm run words:check` passed: minimum 70 separately playable curated answers per prompt.
+- `npm test` passed: 49 tests across 8 suites, including real two-client Socket.IO tests, importer filtering/provenance, reviewed association acceptance, unrelated rejection and repeated-word rejection.
+- `npm run typecheck` passed; final `npm run build` compiled successfully and generated /contact, /privacy, /terms and the home page.
+- Contact | Privacy | Terms footer; contact@example.com is explicitly a non-working placeholder unless CONTACT_EMAIL is configured. Privacy describes actual guest/typing/storage/optional-persistence behavior; operator contact and jurisdiction review remain pending.
+- Settings apply immediately without Save; rejected submission acknowledgments clear the local input and broadcast an empty live draft; How to play is left-aligned.
+- No interactive browser inspection was performed in this update. Production compilation and generated HTML were checked. These changes remain local until committed/pushed; no hosting settings were changed and no deployment was triggered.
+
+## October 13 sound fixes and feedback
+
+- Silent mute/unmute toggle; muting stops active and scheduled oscillators. Rapid duplicate clicks are suppressed, and game cues take priority over buttons.
+- Separate quieter cues for rejected actions, accepted answers, the local turn, and results. Reconnection/history snapshots do not replay old cues, and final-answer packets play only the ending cue.
+- Brief invalid-input nudge, turn-label fade and acceptance sweep; reduced-motion preferences are respected.
+- All 55 tests passed across 9 suites, including audio mocks for mute, debounce, cue priority, blocked playback, cleanup and game snapshot replay prevention. Production build/TypeScript compilation passed.
+- These are automated audio-scheduling checks, not a listening test. Interactive browser/audio inspection was not performed. Changes remain local until pushed/deployed.
+
+## October 13 room chat and final polish
+
+- Implemented real room-scoped Socket.IO chat with a collapsible side panel/drawer, unread badge, bounded history, sender identity from the authenticated session, Unicode normalization, 200-character limit and five-message/ten-second limit that survives reconnecting.
+- Chat is independent of scoring/turn snapshots and Supabase results. Only current room members can send/read; room deletion also removes chat history and rate buckets.
+- All 58 tests passed across 10 suites. Real-client chat tests verify room isolation, non-active-turn messages, unchanged game state, unauthorized/forged inputs, spam limits across reconnection, bounded history and rejection after leaving.
+- Production build passed after fixing a TypeScript address narrowing issue in the new test helper. Interactive browser/visual inspection was not performed in this update.
+- Added stable scrollbar gutter for modal navigation stability, brief chat arrival fades, restrained card hover feedback, and COMMANDS.md covering all npm scripts and update/testing workflows.
+- Updated Privacy to describe chat retention. Changes are local; no deployment or remote push was performed.
+
+## October 13 chat collapse adjustment
+
+- Replaced the immediate open/closed layout switch with a bottom-anchored height/width transition. Chat contents stay mounted at a fixed width and fade before collapse; closing preserves drafts/history and disables hidden controls with inert/aria-hidden.
+- Main content spacing eases with the panel, and reduced-motion disables all new transitions. Production build and TypeScript compilation passed. Visual browser inspection was not performed.

@@ -124,3 +124,25 @@ Follow [DEPLOYMENT.md](DEPLOYMENT.md). The local game is complete; external host
 `lib/sounds.ts` synthesizes short click, accepted-word, invalid-answer, and end-game sounds using Web Audio. There are no audio downloads or paid APIs. Sound starts after a user gesture; the navigation mute button persists its setting in localStorage. `app/icon.svg` is a self-contained outline of C from the supplied Anthropic Display Bold Italic font, in cinnamon orange.
 
 Repeat checks also use verified WordNet derivational/pertainym relationships with shared stems, plus reviewed groups in `data/family-overrides.json`. `data/families.json` is generated. These families only prevent repeated scoring; they do not accept unrelated words or alter frequency estimates. The resource is conservative and cannot guarantee every English derivation is covered. Results now show the rarest word and longest accepted typed spelling, counting letters and excluding punctuation.
+
+## Contact, Privacy and Terms
+
+The home footer links to `/contact`, `/privacy`, and `/terms`. The pages describe the implemented guest, typing, browser-storage, hosting and optional Supabase behavior. Set `CONTACT_EMAIL` in the frontend hosting environment to show a real public contact address. Until configured, Contact explicitly displays `contact@example.com` as a non-working placeholder. Do not use that placeholder as a privacy request channel. Operator/jurisdiction details and a working contact should be finalized before wider promotion; these pages are not an audit or certification of legal compliance. Asset/font licenses still need verification.
+
+Settings apply immediately; rejected submissions clear both the input and shared live draft. How-to-play instructions are aligned with the left edge of the dialog content.
+
+## Expanding associations with Datamuse
+
+Use `npm run words:fetch`, review candidates, then `npm run words:merge`. See [WORD_BANK.md](WORD_BANK.md) for the complete workflow. API requests are development-only and cached; public gameplay remains offline with respect to Datamuse. The current bank has 16,144 curated associations, including 1,699 reviewed Datamuse additions. Attribution and provenance are recorded in `data/datamuse-approved.json`.
+
+## Sound and interaction feedback
+
+Mute and unmute are silent. Muting stops current and scheduled notes immediately; repeated clicks are debounced and click sounds cannot overlap game feedback. Rejected server actions have a short descending cue; accepted answers, your turn, and game completion have separate quiet cues. Reconnection snapshots do not replay old answers/endings. Browser audio is unlocked by click or Enter/Space gestures; blocked sounds are dropped rather than queued. Reduced-motion preferences disable the invalid-input nudge and accepted-answer light sweep.
+
+## Room chat and command guide
+
+Chat is a collapsible side panel, with a drawer on smaller screens, unread counts and safe text rendering. Room members can message during any turn, in the lobby and after results. Messages are server-authenticated (clients cannot supply sender names or target rooms), normalized and limited to 200 characters, five per ten seconds per player. The latest 50 are retained in room memory and can be retrieved after reconnecting. Chat does not affect timers/scores and is excluded from Supabase match records. It is deleted with the room or on server restart. Chat has no automated content moderation; use rooms with people you trust and avoid sharing personal information.
+
+The header reserves scrollbar space to keep navigation fixed when dialogs open. Chat arrival fades and card hover shadows are subtle and respect reduced-motion preferences.
+
+See [COMMANDS.md](COMMANDS.md) for first setup, development/production, tests, manual words, Datamuse review, statistics, Git updates and deployment troubleshooting.

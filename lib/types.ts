@@ -47,9 +47,11 @@ export type RoomState = {
   persistence: 'disabled' | 'pending' | 'saved' | 'failed';
 };
 export type Reply = {
+  messages?: ChatMessage[];
   ok: boolean;
   error?: string;
   playerId?: string;
   token?: string;
   code?: string;
 };
+export type ChatMessage = { id: string; playerId: string; name: string; text: string; at: number };
