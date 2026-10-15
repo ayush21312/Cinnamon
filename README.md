@@ -146,3 +146,11 @@ Chat is a collapsible side panel, with a drawer on smaller screens, unread count
 The header reserves scrollbar space to keep navigation fixed when dialogs open. Chat arrival fades and card hover shadows are subtle and respect reduced-motion preferences.
 
 See [COMMANDS.md](COMMANDS.md) for first setup, development/production, tests, manual words, Datamuse review, statistics, Git updates and deployment troubleshooting.
+
+## Solo practice
+
+Choose **Solo practice** below Create room / Join room on the home page. No display-name form or second player is required; it uses your remembered display name or “You”. Practice runs through the same authoritative server and offline validator as multiplayer, so the game server must be connected.
+
+Practice shows a lowercase prompt and countdown inside the multiplayer-style circle, with the score directly above the answer box. Each answer has 15 seconds, controlled by the server. Each accepted guess scores, switches to a new prompt, and starts a fresh timer; invalid answers stay on the same prompt without resetting time. Expiration moves to the next prompt without awarding points. Rarity reveals, floating point gains and a short ring pulse accompany accepted answers. Submit a valid related word for each prompt; the normal autocorrection and rarity rules apply. Click the prompt itself to change it and reset that prompt's repeats while keeping your session score. Use the navigation Leave action to return home. Prompts are shuffled without repeats within the session; completing the full prompt bank opens results.
+
+Practice uses a private single-player room with the existing reconnect token and ten-second disconnect grace. Other players cannot join it. Chat and multiplayer turn settings are hidden. Practice sessions are not written to Supabase or ranked leaderboards; results last only for the room/session. Server restarts or disconnect expiry can remove them.

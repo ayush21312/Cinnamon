@@ -120,3 +120,13 @@ If package files changed, run `npm ci`, then run the appropriate tests and resta
 - **A word is rejected:** check its prompt relationship, spelling and repeat family; add a reviewed missing association, then rebuild/check.
 - **Contact placeholder:** set `CONTACT_EMAIL` on the frontend host and redeploy. This is a public email address.
 - **Site did not update:** inspect the deployment logs and confirm both hosts deployed the intended commit. Frontend public environment changes need a new build.
+
+## Solo practice
+
+Run `npm run dev`, open the home page, and choose **Solo practice**. The button requires the game server connection; no separate command or Python setup is needed with the bundled bank. Practice gives 15 seconds per answer and uses the same server validation and rarity scoring as multiplayer. Accepted answers advance to a new prompt and reset the server timer; invalid answers stay on the same prompt without resetting time. Expiration rotates to the next prompt without awarding points. Click the practice prompt itself to change it; Leave returns home. To test only practice behavior:
+
+```powershell
+npm test -- tests/practice.test.ts
+```
+
+Practice server/API changes deploy through the same Git push + Vercel/Render workflow above. Update both services. Practice results are not saved to Supabase; active sessions still end on backend restart.

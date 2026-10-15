@@ -39,9 +39,11 @@ export class GameRoom {
     code: string,
     private validator: AssociationValidator = new OfflineValidator(),
     private now: () => number = Date.now,
+    mode: RoomState['mode'] = 'classic',
   ) {
     this.lastActivity = this.now();
     this.state = {
+      mode,
       code,
       hostId: '',
       phase: 'lobby',
@@ -65,6 +67,8 @@ export class GameRoom {
   join(nameInput: string, socketId: string) {
     const name = nameSchema.parse(nameInput).normalize('NFKC');
     if (this.state.phase !== 'lobby') throw Error('This game has already started.');
+    if (this.state.mode === 'practice' && this.state.players.length)
+      throw Error('Practice is solo only.');
     if (this.state.players.length >= 8) throw Error('This room is full (8 players).');
     if (this.state.players.some((p) => p.name.toLowerCase() === name.toLowerCase()))
       throw Error('That name is already taken in this room.');
@@ -115,9 +119,17 @@ export class GameRoom {
     this.host(id);
     if (this.state.phase !== 'lobby') throw Error('A match is already underway.');
     const players = this.state.players;
-    if (players.length < 2 || players.some((p) => !p.connected || !p.ready))
+    if (
+      players.length < (this.state.mode === 'practice' ? 1 : 2) ||
+      players.some((p) => !p.connected || !p.ready)
+    )
       throw Error('At least two connected, ready players are needed.');
-    this.deck = deck ?? shuffle(prompts).slice(0, this.state.settings.rounds);
+    this.deck =
+      deck ??
+      (this.state.mode === 'practice'
+        ? shuffle(prompts)
+        : shuffle(prompts).slice(0, this.state.settings.rounds));
+    if (this.state.mode === 'practice') this.state.settings.rounds = this.deck.length;
     this.state.phase = 'playing';
     this.state.matchId = randomUUID();
     this.state.history = [];
@@ -163,8 +175,39 @@ export class GameRoom {
       id: randomUUID(),
       message: `${this.player(id).name} played ${result.originalWord ? `${result.originalWord} → ` : ''}${result.word} · +${rank.points}`,
     };
-    this.advance();
+    if (this.state.mode === 'practice') {
+      this.nextPracticePrompt(id, turnId);
+    } else this.advance();
     this.touch();
+  }
+  nextPracticePrompt(id: string, turnId: string) {
+    this.requirePractice(id);
+    if (turnId !== this.state.turnId) throw Error('That prompt has ended.');
+    if (this.state.round >= this.deck.length) {
+      this.finishPractice(id);
+      return;
+    }
+    this.state.round++;
+    this.state.prompt = this.deck[this.state.round - 1];
+    this.state.used = [];
+    this.state.typing = null;
+    this.state.lastEvent = null;
+    this.beginTurn(0);
+    this.touch();
+  }
+  finishPractice(id: string) {
+    this.requirePractice(id);
+    this.state.phase = 'results';
+    this.state.activeId = '';
+    this.state.deadline = 0;
+    this.state.typing = null;
+    this.state.lastEvent = { id: randomUUID(), message: 'Practice complete.' };
+    this.touch();
+  }
+  private requirePractice(id: string) {
+    this.host(id);
+    if (this.state.mode !== 'practice' || this.state.phase !== 'playing')
+      throw Error('Practice is not active.');
   }
   private beginTurn(index: number) {
     this.state.activeId = this.state.players[index].id;
@@ -196,6 +239,11 @@ export class GameRoom {
   }
   tick() {
     if (this.state.phase === 'playing' && this.now() >= this.state.deadline) {
+      if (this.state.mode === 'practice') {
+        this.nextPracticePrompt(this.state.hostId, this.state.turnId);
+        this.touch();
+        return true;
+      }
       this.state.lastEvent = {
         id: randomUUID(),
         message: `${this.player(this.state.activeId).name} ran out of time.`,
@@ -281,6 +329,10 @@ export class GameRoom {
     this.state.lastEvent = null;
     this.state.typing = null;
     this.touch();
+    if (this.state.mode === 'practice') {
+      this.player(id).ready = true;
+      this.start(id);
+    }
   }
   snapshot() {
     return { ...this.state, serverNow: this.now() };

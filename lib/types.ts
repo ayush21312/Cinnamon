@@ -27,6 +27,7 @@ export type Submission = {
 };
 export type TypingUpdate = { playerId: string; turnId: string; word: string };
 export type RoomState = {
+  mode: 'classic' | 'practice';
   code: string;
   hostId: string;
   phase: 'lobby' | 'playing' | 'results';

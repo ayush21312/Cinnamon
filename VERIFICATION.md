@@ -119,3 +119,32 @@ This is a functioning classic multiplayer MVP. The conservative offline associat
 
 - Replaced the immediate open/closed layout switch with a bottom-anchored height/width transition. Chat contents stay mounted at a fixed width and fade before collapse; closing preserves drafts/history and disables hidden controls with inert/aria-hidden.
 - Main content spacing eases with the panel, and reduced-motion disables all new transitions. Production build and TypeScript compilation passed. Visual browser inspection was not performed.
+
+## October 14 solo practice
+
+- Added a full-width Solo practice button beneath the two multiplayer home actions, with aligned icon/text, a short untimed label, consistent spacing and responsive sizing.
+- Added server-authoritative single-player practice rooms. One player starts immediately; no timer; multiple answers per prompt; unchanged rarity, morphology, autocorrection and association validation. Next prompt is guarded by the current prompt ID, resets repeats, and preserves session score/history. Finish and Practice again work without a lobby.
+- Added a dedicated practice view and results summary, accepted-word list, rarity feedback and automatic input refocus. Chat and multiplayer settings are hidden; opening practice settings does not overwrite future multiplayer defaults.
+- Practice rooms cannot accept a second participant. Practice uses existing reconnection/expiry behavior and is excluded from Supabase match persistence.
+- 64 tests passed across 11 suites. New engine/socket tests cover no expiration after an hour, multiple answers, score calculation, repeat rejection, cross-prompt reset, stale submissions/skip requests, finishing/rematch, reconnecting, outsider rejection, duplicate races, no forged scores and no persistence. Existing multiplayer/chat/audio suites also passed.
+- Production build and TypeScript compilation passed. Browser visual inspection was not performed. Changes remain local and require frontend + backend deployment before public use.
+
+## October 14 minimal practice layout
+
+- Removed the home-button subtitle and practice labels, hints, action rows, accepted-word list and rarity reveal. Practice now shows a lowercase prompt and score inside the shared multiplayer circle, with the answer box beneath it. Invalid-answer feedback still appears when needed.
+- The prompt itself is an accessible button for changing prompts, with no extra visible label. Leave remains in navigation. Practice scoring/validation are unchanged.
+- Production build and TypeScript compilation passed. Interactive browser visual inspection was not performed.
+
+## October 14 timed practice and feedback
+
+- Moved the unlabelled practice score above the input and removed the left icon from the Solo practice home button. The lowercase prompt remains inside the multiplayer-style circle.
+- Practice now has a server-controlled 15-second answer deadline. Each accepted answer refreshes its deadline and action ID, retaining the same prompt and repeats. Invalid answers do not reset time. Expiry advances to the next prompt with no points; the final prompt expires into results. Late/stale submissions cannot score.
+- Added countdown digits/ring, urgent countdown feedback, multiplayer rarity reveals, floating score gains, a short tier-colored ring pulse, and restrained hover/press transitions. Reduced-motion preferences are respected.
+- Production build/TypeScript compilation passed. An initial full test run had a Windows worker crash; rerunning with `npm test -- --maxWorkers=2` passed all 65 tests across 11 suites. Timer tests cover reset timing, invalid answers preserving the deadline, exact-boundary rejection, once-only prompt rotation, final expiration, reconnect timer preservation and duplicate/stale requests.
+- Interactive browser/visual verification was not performed. Changes remain local pending deployment.
+
+## October 14 per-guess prompts and compact button
+
+- Reduced Solo practice button padding and font size. Every accepted guess now scores and advances immediately to the next shuffled prompt with a fresh server timer; invalid guesses do not advance or reset time.
+- Removed the current-prompt filter that hid rarity reveals after prompt changes. Practice uses the same RarityReveal component as multiplayer, including on the last accepted answer in results.
+- Updated practice tests for automatic prompt advancement, fresh action IDs, timer resets, invalid retries, cross-prompt answer reuse and final-prompt completion. All 65 tests passed with two workers; production build and TypeScript compilation passed. No interactive visual inspection or deployment was performed.

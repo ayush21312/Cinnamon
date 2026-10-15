@@ -21,6 +21,7 @@ import {
 import type { Reply, RoomState, Settings, Submission, TypingUpdate } from '../lib/types';
 import WordArt from './WordArt';
 import RoomChat from './RoomChat';
+import PracticeGame from './PracticeGame';
 import { GameSounds, type SoundEffect } from '../lib/sounds';
 import { stateSound } from '../lib/game-feedback';
 import { animate, useReducedMotion } from 'motion/react';
@@ -162,6 +163,10 @@ export default function Page() {
     window.scrollTo(0, 0);
   }, [room?.phase]);
   useEffect(() => {
+    if (!busy && connected && room?.mode === 'practice' && room.phase === 'playing')
+      input.current?.focus({ preventScroll: true });
+  }, [busy, connected, room?.mode, room?.phase, room?.turnId]);
+  useEffect(() => {
     if (!reveal) return;
     const timer = setTimeout(() => setReveal(null), 2600);
     return () => clearTimeout(timer);
@@ -249,6 +254,17 @@ export default function Page() {
       history.replaceState(null, '', `?room=${saved.code}`);
     });
   }
+  function startPractice() {
+    send('practice', { name: name.trim() || 'You' }, (reply) => {
+      const saved = { playerId: reply.playerId!, token: reply.token!, code: reply.code! };
+      identity.current = saved;
+      sessionStorage.setItem('cinammon-session', JSON.stringify(saved));
+      setMe(saved.playerId);
+      setDialog(null);
+      setChatOpen(false);
+      history.replaceState(null, '', `?room=${saved.code}`);
+    });
+  }
   function leave() {
     send('leave', {}, () => {
       identity.current = null;
@@ -320,7 +336,7 @@ export default function Page() {
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className={`site-shell ${colorblind ? 'colorblind-mode' : ''} ${room && chatOpen ? 'chat-expanded' : ''}`}
+        className={`site-shell ${colorblind ? 'colorblind-mode' : ''} ${room?.mode !== 'practice' && room && chatOpen ? 'chat-expanded' : ''}`}
         onKeyDownCapture={(event) => {
           if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) {
             audio.current ??= new GameSounds();
@@ -366,7 +382,7 @@ export default function Page() {
             <button
               className={`nav-tab ${dialog === 'settings' ? 'selected' : ''}`}
               onClick={() => {
-                if (room) setDraft(room.settings);
+                if (room && room.mode !== 'practice') setDraft(room.settings);
                 setDialog('settings');
               }}
             >
@@ -399,11 +415,13 @@ export default function Page() {
         </header>
         {room && !connected && (
           <div className="connection-banner">
-            <WifiOff size={17} /> Reconnecting… your seat is reserved. The server timer keeps
-            running.
+            <WifiOff size={17} />{' '}
+            {room.mode === 'practice'
+              ? 'Reconnecting… restoring your practice session.'
+              : 'Reconnecting… your seat is reserved. The server timer keeps running.'}
           </div>
         )}
-        {room && (
+        {room && room.mode !== 'practice' && (
           <RoomChat
             key={room.code}
             socket={socket.current}
@@ -442,6 +460,16 @@ export default function Page() {
                     }}
                   >
                     Join room
+                  </button>
+                  <button
+                    className="solo-practice-button"
+                    onClick={startPractice}
+                    disabled={busy || !connected}
+                  >
+                    <span>
+                      <strong>Solo practice</strong>
+                    </span>
+                    <ArrowRight size={18} />
                   </button>
                 </div>
               </div>
@@ -559,14 +587,40 @@ export default function Page() {
                         Start game <ArrowRight size={18} />
                       </button>
                     ) : (
-                      <span className="pill">WAITING FOR HOST</span>
+                      <span className="pill">Waiting For Host</span>
                     )}
                   </div>
                 </div>
               </div>
             </motion.section>
           )}
-          {room?.phase === 'playing' && (
+          {room?.phase === 'playing' && room.mode === 'practice' && (
+            <PracticeGame
+              room={room}
+              word={word}
+              error={error}
+              busy={busy}
+              connected={connected}
+              inputRef={input}
+              onEdit={editWord}
+              onSubmit={submit}
+              score={<ScoreCounter score={player?.score ?? 0} />}
+              seconds={seconds}
+              reveal={reveal}
+              rarityReveal={
+                <AnimatePresence>
+                  {reveal && <RarityReveal key={reveal.id} submission={reveal} />}
+                </AnimatePresence>
+              }
+              onNext={() =>
+                send('practice:next', { turnId: room.turnId }, () => {
+                  setReveal(null);
+                  setWord('');
+                })
+              }
+            />
+          )}
+          {room?.phase === 'playing' && room.mode !== 'practice' && (
             <section className="game section">
               <div className="game-topline">
                 <span>Room {room.code}</span>
@@ -730,7 +784,46 @@ export default function Page() {
               </div>
             </section>
           )}
-          {room?.phase === 'results' && (
+          {room?.phase === 'results' && room.mode === 'practice' && (
+            <motion.section
+              className="results section practice-results"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <h1>Practice complete</h1>
+              <div className="final-reveal">
+                <AnimatePresence>
+                  {reveal && <RarityReveal key={reveal.id} submission={reveal} />}
+                </AnimatePresence>
+              </div>
+              <p>
+                {room.history.length} words accepted · {room.round}{' '}
+                {room.round === 1 ? 'prompt' : 'prompts'} explored
+              </p>
+              <div className="practice-final-score">
+                <span>Total score</span>
+                <ScoreCounter score={player?.score ?? 0} />
+              </div>
+              <div className="results-grid">
+                <Highlight label="RAREST WORD" submission={rarest} room={room} />
+                <Highlight label="LONGEST WORD" submission={longest} room={room} longest />
+              </div>
+              <div className="results-actions">
+                <button
+                  className="primary large"
+                  disabled={busy || !connected}
+                  onClick={() => send('rematch', {}, () => setReveal(null))}
+                >
+                  <RotateCcw size={18} />
+                  Practice again
+                </button>
+                <button className="secondary large" disabled={busy} onClick={leave}>
+                  Back to home
+                </button>
+              </div>
+            </motion.section>
+          )}
+          {room?.phase === 'results' && room.mode !== 'practice' && (
             <motion.section
               className="results section"
               initial={{ opacity: 0, y: 12 }}
@@ -901,6 +994,9 @@ export default function Page() {
                       </li>
                     </ol>
                     <h3 className="categories-heading">Point categories</h3>
+                    <p className="help-note">
+                      In solo practice, click the prompt to change it. Use Leave to return home.
+                    </p>
                     <div className="point-categories" role="list" aria-label="Point categories">
                       {TIER_NAMES.map((tier, index) => (
                         <div className={`point-category tier-${index}`} key={tier} role="listitem">
@@ -946,14 +1042,16 @@ export default function Page() {
                       />
                       <span aria-hidden="true" className="switch-track" />
                     </label>
-                    <GameSettings
-                      value={draft}
-                      disabled={!!room && (!host || room.phase !== 'lobby')}
-                      onChange={(settings) => {
-                        setDraft(settings);
-                        if (room) send('settings', settings);
-                      }}
-                    />
+                    {room?.mode !== 'practice' && (
+                      <GameSettings
+                        value={draft}
+                        disabled={!!room && (!host || room.phase !== 'lobby')}
+                        onChange={(settings) => {
+                          setDraft(settings);
+                          if (room) send('settings', settings);
+                        }}
+                      />
+                    )}
                   </>
                 )}
                 {error && (

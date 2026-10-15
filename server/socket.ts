@@ -72,6 +72,7 @@ export function createGameServer(options: Options = {}) {
     if (room.state.phase === 'results') void persist(room);
   }
   async function persist(room: GameRoom) {
+    if (room.state.mode === 'practice') return;
     const id = room.state.matchId;
     if (!options.saveResult || pendingSaves.has(id) || persisted.has(id)) return;
     pendingSaves.add(id);
@@ -140,12 +141,12 @@ export function createGameServer(options: Options = {}) {
         session = null;
       }
     }
-    function attach(room: GameRoom, name: string) {
+    function attach(room: GameRoom, name: string, sync = true) {
       if (session) throw Error('Leave your current room before joining another.');
       const identity = room.join(name, socket.id);
       session = { room, playerId: identity.playerId };
       socket.join(room.state.code);
-      broadcast(room);
+      if (sync) broadcast(room);
       return { ...identity, code: room.state.code };
     }
     handle('create', (payload) => {
@@ -164,6 +165,31 @@ export function createGameServer(options: Options = {}) {
       const room = rooms.get(code);
       if (!room) throw Error('Room not found. Check the code.');
       return attach(room, name);
+    });
+    handle('practice', (payload) => {
+      const { name } = z.object({ name: nameSchema }).strict().parse(payload);
+      if (session) throw Error('Leave your current room first.');
+      if (rooms.size >= 500) throw Error('The server is full. Try again later.');
+      let code = roomCode();
+      while (rooms.has(code)) code = roomCode();
+      const room = new GameRoom(code, undefined, now, 'practice');
+      const result = attach(room, name, false);
+      room.ready(result.playerId, true);
+      room.start(result.playerId);
+      rooms.set(code, room);
+      broadcast(room);
+      return result;
+    });
+    handle('practice:next', (payload) => {
+      const { room, playerId } = requireSession();
+      const { turnId } = z.object({ turnId: z.string().uuid() }).strict().parse(payload);
+      room.nextPracticePrompt(playerId, turnId);
+      broadcast(room);
+    });
+    handle('practice:finish', () => {
+      const { room, playerId } = requireSession();
+      room.finishPractice(playerId);
+      broadcast(room);
     });
     handle('resume', (payload) => {
       const { code, playerId, token } = resumeSchema.parse(payload);
