@@ -587,7 +587,7 @@ export default function Page() {
                         Start game <ArrowRight size={18} />
                       </button>
                     ) : (
-                      <span className="pill">Waiting For Host</span>
+                      <span className="pill"></span>
                     )}
                   </div>
                 </div>
