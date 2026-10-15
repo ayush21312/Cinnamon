@@ -148,3 +148,9 @@ This is a functioning classic multiplayer MVP. The conservative offline associat
 - Reduced Solo practice button padding and font size. Every accepted guess now scores and advances immediately to the next shuffled prompt with a fresh server timer; invalid guesses do not advance or reset time.
 - Removed the current-prompt filter that hid rarity reveals after prompt changes. Practice uses the same RarityReveal component as multiplayer, including on the last accepted answer in results.
 - Updated practice tests for automatic prompt advancement, fresh action IDs, timer resets, invalid retries, cross-prompt answer reuse and final-prompt completion. All 65 tests passed with two workers; production build and TypeScript compilation passed. No interactive visual inspection or deployment was performed.
+
+## October 14 stable practice timer layout
+
+- Practice prompt and timer now occupy independent fixed positions inside the circle. Prompt font sizing is consistent across words at a given viewport size; prompt fades no longer affect timer placement.
+- Timer digits reserve two character slots, the unit remains aligned, and the practice urgent state no longer scales the timer. Countdown ring/color feedback remains.
+- Production build/TypeScript compilation passed; interactive visual inspection was not performed.

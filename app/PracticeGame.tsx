@@ -83,9 +83,6 @@ export default function PracticeGame({
                 disabled={busy || !connected}
                 aria-label={`Next prompt. Current prompt: ${room.prompt}`}
                 title="Next prompt"
-                style={{
-                  fontSize: `clamp(20px, ${Math.min(7, 55 / room.prompt.length)}vw, ${Math.min(64, 280 / room.prompt.length)}px)`,
-                }}
               >
                 {room.prompt.toLowerCase()}
               </button>
@@ -95,7 +92,7 @@ export default function PracticeGame({
             className={`circle-timer ${seconds <= 5 ? 'urgent' : ''}`}
             aria-label={`${Math.ceil(seconds)} seconds remaining`}
           >
-            {Math.ceil(seconds)}
+            <span className="practice-timer-digits">{Math.ceil(seconds)}</span>
             <small>s</small>
           </div>
         </div>
