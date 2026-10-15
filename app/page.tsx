@@ -995,7 +995,7 @@ export default function Page() {
                     </ol>
                     <h3 className="categories-heading">Point categories</h3>
                     <p className="help-note">
-                      In solo practice, click the prompt to change it. Use Leave to return home.
+
                     </p>
                     <div className="point-categories" role="list" aria-label="Point categories">
                       {TIER_NAMES.map((tier, index) => (
